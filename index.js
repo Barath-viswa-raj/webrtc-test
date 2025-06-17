@@ -1,33 +1,45 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
 
 const app = express();
-const server = http.createServer(app);
+app.use(cors());
 
+const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: {
+    origin: "*", // Adjust this if needed for security
+    methods: ["GET", "POST"],
+  },
 });
 
-io.on('connection', (socket) => {
-  socket.on('join-room', (roomId) => {
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+
+  socket.on("join-room", (roomId) => {
     socket.join(roomId);
-    socket.to(roomId).emit('user-joined', socket.id);
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+    socket.to(roomId).emit("user-joined", socket.id);
+  });
 
-    socket.on('offer', (data) => {
-      socket.to(roomId).emit('offer', { ...data, from: socket.id });
-    });
+  socket.on("offer", ({ offer, roomId }) => {
+    socket.to(roomId).emit("offer", { offer, from: socket.id });
+  });
 
-    socket.on('answer', (data) => {
-      socket.to(roomId).emit('answer', data);
-    });
+  socket.on("answer", ({ answer, to }) => {
+    io.to(to).emit("answer", { answer });
+  });
 
-    socket.on('ice-candidate', (data) => {
-      socket.to(roomId).emit('ice-candidate', data);
-    });
+  socket.on("ice-candidate", ({ candidate, roomId }) => {
+    socket.to(roomId).emit("ice-candidate", { candidate });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
   });
 });
 
-server.listen(process.env.PORT || 5000, () =>
-  console.log('Server running'))
+server.listen(5000, () => {
+  console.log("Server running on port 5000");
+});
